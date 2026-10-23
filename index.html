@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f6f7fb" />
+  <title>Personal Study Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          colors: { ink: '#182230', muted: '#667085', accent: '#635bff', canvas: '#f6f7fb' },
+          boxShadow: { card: '0 12px 34px rgba(24, 34, 48, 0.06)' }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'DM Sans', sans-serif; }
+    h1, h2, h3, button { font-family: 'Manrope', sans-serif; }
+    input, select { color-scheme: light; }
+    input[type="range"] { accent-color: #635bff; }
+    .modal-backdrop { transition: opacity 180ms ease; }
+    .modal-panel { transition: transform 180ms ease, opacity 180ms ease; }
+    @media print {
+      body { background: #fff !important; color: #182230 !important; }
+      .no-print, header, footer { display: none !important; }
+      main { max-width: none !important; padding: 0 !important; }
+      #revision-plan { display: block !important; margin: 0 !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+      #revision-plan .day-content { display: block !important; }
+      #revision-plan details { break-inside: avoid; border-color: #d1d5db !important; }
+      #revision-plan summary { list-style: none; }
+      #revision-plan .task-row { break-inside: avoid; }
+      #schedule-note { display: block !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-canvas text-ink antialiased">
+  <main class="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+    <header class="mb-9 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-sm">
+          <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+          YOUR FOCUS, ORGANIZED
+        </div>
+        <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Personal Study Planner</h1>
+        <p class="mt-2 text-base text-slate-500">Generate your personalized revision schedule</p>
+      </div>
+      <div class="flex flex-col items-end gap-3">
+        <div class="flex flex-wrap justify-end gap-2">
+          <button id="load-sample" type="button" class="rounded-xl border border-violet-200 bg-white px-3.5 py-2 text-xs font-bold text-violet-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-50 focus:outline-none focus:ring-4 focus:ring-violet-100">⚡ Load Sample Plan</button>
+          <button id="reset-all" type="button" class="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100">Reset All</button>
+        </div>
+        <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+          <div class="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v3m8-3v3M4.5 9.5h15M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z"/><path d="m9 15 2 2 4-4"/></svg>
+          </div>
+          <div><p class="text-xs font-medium text-slate-500">A little progress, every day</p><p class="text-sm font-bold text-slate-800">Make your study time count</p></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="no-print grid items-start gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <section class="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card sm:p-8" aria-labelledby="add-subject-title">
+        <div class="mb-7 flex items-start gap-4">
+          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-50 text-violet-600" aria-hidden="true">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div><h2 id="add-subject-title" class="text-xl font-bold tracking-tight">Add a subject</h2><p class="mt-1 text-sm text-slate-500">Tell us what you’re preparing for.</p></div>
+        </div>
+        <form id="subject-form" class="space-y-5">
+          <div>
+            <label for="subject-name" class="mb-2 block text-sm font-semibold text-slate-700">Subject name</label>
+            <input id="subject-name" name="name" type="text" placeholder="e.g. Biology" required maxlength="60" class="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" />
+          </div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label for="exam-date" class="mb-2 block text-sm font-semibold text-slate-700">Exam date</label>
+              <input id="exam-date" name="examDate" type="date" required class="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" />
+            </div>
+            <div>
+              <label for="difficulty" class="mb-2 block text-sm font-semibold text-slate-700">Difficulty level</label>
+              <select id="difficulty" name="difficulty" required class="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100">
+                <option value="" disabled selected>Choose difficulty</option><option>Easy</option><option>Medium</option><option>Hard</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label for="hours-needed" class="mb-2 block text-sm font-semibold text-slate-700">Estimated hours to master</label>
+            <div class="relative">
+              <input id="hours-needed" name="hours" type="number" min="1" max="500" step="1" value="10" required class="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3 pr-16 text-sm outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" />
+              <span class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-slate-400">hours</span>
+            </div>
+            <p class="mt-2 text-xs text-slate-400">A rough estimate is perfect. You can adjust it later.</p>
+          </div>
+          <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Subject
+          </button>
+        </form>
+      </section>
+
+      <div class="space-y-6">
+        <section class="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card sm:p-7" aria-labelledby="availability-title">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex items-start gap-4">
+              <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-600" aria-hidden="true">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+              </div>
+              <div><h2 id="availability-title" class="text-lg font-bold tracking-tight">Daily availability</h2><p class="mt-1 text-sm text-slate-500">How much time can you set aside?</p></div>
+            </div>
+            <span class="rounded-xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-700"><span id="availability-value">4</span> hrs</span>
+          </div>
+          <div class="mt-6">
+            <label for="availability" class="sr-only">Available study hours per day</label>
+            <input id="availability" type="range" min="2" max="6" step="1" value="4" class="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-100" />
+            <div class="mt-2 flex justify-between text-xs font-medium text-slate-400"><span>2 hours</span><span>6 hours</span></div>
+          </div>
+        </section>
+
+        <section class="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card sm:p-7" aria-labelledby="subjects-title">
+          <div class="mb-5 flex items-center justify-between">
+            <div class="flex items-center gap-3"><div class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H20v17H7.5A2.5 2.5 0 0 0 5 21.5v-17Z"/><path d="M5 18.5A2.5 2.5 0 0 1 7.5 16H20M9 6h7m-7 4h7"/></svg></div><div><h2 id="subjects-title" class="text-lg font-bold tracking-tight">Your subjects</h2><p id="subject-count" class="mt-0.5 text-xs text-slate-500">0 subjects added</p></div></div>
+            <span id="subject-badge" class="grid h-8 min-w-8 place-items-center rounded-full bg-slate-100 px-2 text-xs font-bold text-slate-600">0</span>
+          </div>
+          <div id="subject-list" class="space-y-3" aria-live="polite">
+            <div id="empty-state" class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-5 py-8 text-center">
+              <div class="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-white text-slate-400 shadow-sm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 5v14M5 12h14"/></svg></div>
+              <p class="text-sm font-semibold text-slate-600">Your list is ready when you are</p>
+              <p class="mt-1 text-xs text-slate-400">Add your first subject using the form.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section class="no-print mt-6 rounded-3xl bg-gradient-to-r from-indigo-600 to-violet-600 p-6 shadow-xl shadow-indigo-900/10 sm:flex sm:items-center sm:justify-between sm:px-8 sm:py-7">
+      <div class="mb-5 flex items-center gap-4 sm:mb-0">
+        <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15 text-white ring-1 ring-white/20" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5m0 14h17M7 15l4-4 3 2 6-7"/><path d="M16 6h4v4"/></svg></div>
+        <div><h2 class="text-lg font-bold text-white">Ready to plan your revision?</h2><p class="mt-1 text-sm text-indigo-100">Your schedule starts with the subjects you add.</p></div>
+      </div>
+      <button id="generate-button" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-bold text-indigo-700 shadow-md transition hover:-translate-y-0.5 hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-white/30 sm:w-auto">
+        Generate Revision Schedule
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+      </button>
+    </section>
+    <section id="revision-plan" class="mt-6 hidden rounded-3xl border border-slate-200/80 bg-white p-6 shadow-card sm:p-8" aria-labelledby="plan-title" aria-live="polite">
+      <div class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700"><span class="h-2 w-2 rounded-full bg-violet-500"></span> YOUR PERSONAL PLAN</div>
+          <h2 id="plan-title" class="text-2xl font-extrabold tracking-tight text-slate-900">Your Revision Plan</h2>
+          <p id="plan-summary" class="mt-1 text-sm text-slate-500"></p>
+        </div>
+        <div class="flex w-full items-center gap-4 sm:w-auto sm:min-w-[22rem]">
+          <div class="min-w-0 flex-1">
+            <div class="mb-2 flex items-center justify-between gap-2 text-xs font-semibold"><span class="text-slate-600">Overall progress</span><span id="progress-label" class="whitespace-nowrap text-violet-700">0 of 0 sessions completed (0%)</span></div>
+            <div class="h-2.5 overflow-hidden rounded-full bg-violet-100"><div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 transition-all duration-300" style="width: 0%"></div></div>
+          </div>
+          <button id="print-button" type="button" class="no-print inline-flex shrink-0 items-center gap-2 rounded-xl border border-violet-200 bg-white px-3.5 py-2.5 text-xs font-bold text-violet-700 shadow-sm transition hover:bg-violet-50 focus:outline-none focus:ring-4 focus:ring-violet-100"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>Print / Save PDF</button>
+        </div>
+      </div>
+      <div id="schedule-list" class="space-y-3"></div>
+      <p id="schedule-note" class="mt-5 hidden rounded-xl px-4 py-3 text-sm"></p>
+    </section>
+    <footer class="pt-7 text-center text-xs text-slate-400">Small steps add up. You’ve got this.</footer>
+  </main>
+
+  <div id="focus-modal" class="no-print modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/45 p-4 opacity-0 backdrop-blur-sm" role="presentation">
+    <section id="focus-panel" class="modal-panel w-full max-w-md scale-95 rounded-3xl border border-white/60 bg-white p-6 opacity-0 shadow-2xl shadow-slate-950/20 sm:p-8" role="dialog" aria-modal="true" aria-labelledby="focus-title" aria-describedby="focus-task">
+      <div class="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700"><span class="h-2 w-2 animate-pulse rounded-full bg-violet-500"></span> FOCUS SESSION</div>
+          <h2 id="focus-title" class="text-xl font-extrabold tracking-tight text-slate-900">Stay in your focus zone</h2>
+          <p id="focus-task" class="mt-1 text-sm text-slate-500"></p>
+        </div>
+        <button id="focus-close-icon" type="button" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label="Close focus timer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+      </div>
+      <div class="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 px-6 py-8 text-center">
+        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-violet-500">Time to focus</p>
+        <p id="timer-display" class="mt-2 font-mono text-6xl font-bold tracking-tight text-slate-900" aria-live="polite">25:00</p>
+        <p class="mt-2 text-xs text-slate-500">One task at a time. You’ve got this.</p>
+      </div>
+      <div class="mt-6 grid grid-cols-3 gap-3">
+        <button id="timer-start" type="button" class="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-100">Start</button>
+        <button id="timer-pause" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100">Pause</button>
+        <button id="timer-reset" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100">Reset</button>
+      </div>
+      <button id="focus-close" type="button" class="mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-700">Close</button>
+    </section>
+  </div>
+
+  <script>
+    const form = document.getElementById('subject-form');
+    const subjectList = document.getElementById('subject-list');
+    const subjectCount = document.getElementById('subject-count');
+    const subjectBadge = document.getElementById('subject-badge');
+    const emptyState = document.getElementById('empty-state');
+    const availability = document.getElementById('availability');
+    const availabilityValue = document.getElementById('availability-value');
+    const STORAGE_KEYS = { subjects: 'studyPlanner.subjects', availability: 'studyPlanner.availability', schedule: 'studyPlanner.schedule' };
+    function readStorage(key, fallback) {
+      try { const value = localStorage.getItem(key); return value === null ? fallback : JSON.parse(value); }
+      catch { return fallback; }
+    }
+    let subjects = readStorage(STORAGE_KEYS.subjects, []);
+    if (!Array.isArray(subjects)) subjects = [];
+    let schedule = readStorage(STORAGE_KEYS.schedule, []);
+    if (!Array.isArray(schedule)) schedule = [];
+    let allSessionsWereComplete = false;
+    const savedAvailability = Number(readStorage(STORAGE_KEYS.availability, 4));
+    availability.value = String(Math.max(2, Math.min(6, Number.isFinite(savedAvailability) ? savedAvailability : 4)));
+    availabilityValue.textContent = availability.value;
+    const planSection = document.getElementById('revision-plan');
+    const scheduleList = document.getElementById('schedule-list');
+    const scheduleNote = document.getElementById('schedule-note');
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.subjects, JSON.stringify(subjects));
+        localStorage.setItem(STORAGE_KEYS.availability, JSON.stringify(Number(availability.value)));
+        localStorage.setItem(STORAGE_KEYS.schedule, JSON.stringify(schedule));
+      } catch (error) { console.warn('Planner data could not be saved in this browser.', error); }
+    }
+    function clearSchedule() {
+      schedule = [];
+      planSection.classList.add('hidden');
+      scheduleList.replaceChildren();
+      saveState();
+    }
+
+    availability.addEventListener('input', () => {
+      availabilityValue.textContent = availability.value;
+    });
+    availability.addEventListener('change', () => {
+      saveState();
+      if (schedule.length) clearSchedule();
+    });
+
+    function formatDate(dateString) {
+      return new Date(dateString + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function difficultyStyle(difficulty) {
+      return ({ Hard: 'bg-rose-100 text-rose-700 ring-rose-200', Medium: 'bg-amber-100 text-amber-800 ring-amber-200', Easy: 'bg-emerald-100 text-emerald-700 ring-emerald-200' })[difficulty] || 'bg-slate-100 text-slate-700 ring-slate-200';
+    }
+
+    function renderSubjects() {
+      subjectList.querySelectorAll('[data-subject-row]').forEach(row => row.remove());
+      emptyState.classList.toggle('hidden', subjects.length > 0);
+      subjectCount.textContent = `${subjects.length} ${subjects.length === 1 ? 'subject' : 'subjects'} added`;
+      subjectBadge.textContent = subjects.length;
+
+      subjects.forEach(subject => {
+        const row = document.createElement('article');
+        row.dataset.subjectRow = '';
+        row.className = 'flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-4';
+        const info = document.createElement('div');
+        info.className = 'min-w-0';
+        const title = document.createElement('h3');
+        title.className = 'truncate text-sm font-bold text-slate-800';
+        title.textContent = subject.name;
+        const details = document.createElement('div');
+        details.className = 'mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500';
+        const date = document.createElement('span');
+        date.textContent = `Exam ${formatDate(subject.examDate)}`;
+        const difficulty = document.createElement('span');
+        difficulty.className = `rounded-full px-2.5 py-1 font-semibold ring-1 ring-inset ${difficultyStyle(subject.difficulty)}`;
+        difficulty.textContent = subject.difficulty;
+        const hours = document.createElement('span');
+        hours.textContent = `${subject.hours} target hrs`;
+        details.append(date, difficulty, hours);
+        info.append(title, details);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-200';
+        remove.textContent = 'Delete';
+        remove.setAttribute('aria-label', `Delete ${subject.name}`);
+        remove.addEventListener('click', () => {
+          const index = subjects.findIndex(item => item.id === subject.id);
+          if (index !== -1) subjects.splice(index, 1);
+          renderSubjects();
+          saveState();
+          if (schedule.length) clearSchedule();
+        });
+        row.append(info, remove);
+        subjectList.append(row);
+      });
+    }
+
+    function localDateAtOffset(offset) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + offset);
+      return date;
+    }
+    function dateKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+    function daysFromToday(dateString) {
+      const exam = new Date(dateString + 'T00:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return Math.round((exam - today) / 86400000);
+    }
+    function taskHint(difficulty) {
+      return ({ Hard: 'Deep Work & Problem Solving', Medium: 'Core Concept Review', Easy: 'Active Recall & Quick Review' })[difficulty];
+    }
+    function buildSchedule() {
+      const hoursPerDay = Number(availability.value);
+      const remaining = new Map(subjects.map(subject => [subject.id, Number(subject.hours)]));
+      const daysUntilExam = new Map(subjects.map(subject => [subject.id, daysFromToday(subject.examDate)]));
+      const maxDay = Math.max(0, ...subjects.map(subject => daysUntilExam.get(subject.id) - 1));
+      const plan = [];
+      const weights = { Hard: 3, Medium: 2, Easy: 1 };
+
+      // Offset 1 is tomorrow. Offset d - 1 is the day before an exam d days away.
+      for (let offset = 1; offset <= maxDay; offset++) {
+        let capacity = hoursPerDay;
+        const blocks = [];
+        const assignedToday = new Map();
+        const dailyTargets = new Map();
+        subjects.forEach(subject => {
+          const daysLeft = daysUntilExam.get(subject.id) - offset;
+          if (daysLeft > 0) dailyTargets.set(subject.id, Math.min(remaining.get(subject.id), Math.ceil(remaining.get(subject.id) / daysLeft)));
+        });
+        while (capacity >= 1) {
+          const eligible = subjects.filter(subject => {
+            const target = dailyTargets.get(subject.id) || 0;
+            return daysUntilExam.get(subject.id) > offset && remaining.get(subject.id) >= 1 && (assignedToday.get(subject.id) || 0) < target;
+          });
+          if (!eligible.length) break;
+          eligible.sort((a, b) => {
+            const aDaysLeft = daysUntilExam.get(a.id) - offset;
+            const bDaysLeft = daysUntilExam.get(b.id) - offset;
+            const aNeed = dailyTargets.get(a.id) - (assignedToday.get(a.id) || 0);
+            const bNeed = dailyTargets.get(b.id) - (assignedToday.get(b.id) || 0);
+            const aPriority = weights[a.difficulty] * aNeed / aDaysLeft;
+            const bPriority = weights[b.difficulty] * bNeed / bDaysLeft;
+            return bPriority - aPriority || aDaysLeft - bDaysLeft || a.name.localeCompare(b.name);
+          });
+          const subject = eligible[0];
+          const sessionSize = subject.difficulty === 'Hard' ? 2 : 1;
+          const hours = Math.min(sessionSize, capacity, remaining.get(subject.id));
+          const finalReview = daysUntilExam.get(subject.id) - 1 === offset;
+          blocks.push({
+            id: `${subject.id}-${offset}-${blocks.length}`,
+            subjectId: subject.id,
+            subjectName: subject.name,
+            difficulty: subject.difficulty,
+            hours,
+            description: finalReview ? 'Final Review & Past Papers' : taskHint(subject.difficulty),
+            date: dateKey(localDateAtOffset(offset)),
+            completed: false
+          });
+          remaining.set(subject.id, remaining.get(subject.id) - hours);
+          assignedToday.set(subject.id, (assignedToday.get(subject.id) || 0) + hours);
+          capacity -= hours;
+        }
+        if (blocks.length) plan.push({ offset, date: dateKey(localDateAtOffset(offset)), blocks });
+      }
+      return { plan, remaining, daysUntilExam };
+    }
+    function updateProgress(allowCelebration = false) {
+      const blocks = schedule.flatMap(day => day.blocks);
+      const completed = blocks.filter(block => block.completed).length;
+      const percent = blocks.length ? Math.round(completed / blocks.length * 100) : 0;
+      document.getElementById('progress-label').textContent = `${completed} of ${blocks.length} sessions completed (${percent}%)`;
+      document.getElementById('progress-bar').style.width = `${percent}%`;
+      const allComplete = blocks.length > 0 && completed === blocks.length;
+      if (allowCelebration && allComplete && !allSessionsWereComplete && typeof confetti === 'function') {
+        confetti({ particleCount: 120, spread: 72, origin: { y: 0.68 }, colors: ['#635bff', '#8b5cf6', '#c4b5fd', '#fbbf24', '#34d399'] });
+      }
+      allSessionsWereComplete = allComplete;
+    }
+    function renderSchedule() {
+      scheduleList.replaceChildren();
+      planSection.classList.remove('hidden');
+      const blocks = schedule.flatMap(day => day.blocks);
+      const totalHours = blocks.reduce((sum, block) => sum + Number(block.hours || 0), 0);
+      document.getElementById('plan-summary').textContent = blocks.length
+        ? `${blocks.length} ${blocks.length === 1 ? 'session' : 'sessions'} · ${formatHours(totalHours)} scheduled · Up to ${availability.value} hrs per day`
+        : 'No study sessions fit before the upcoming exam dates.';
+      scheduleNote.classList.add('hidden');
+      scheduleNote.textContent = '';
+      scheduleNote.className = 'mt-5 hidden rounded-xl px-4 py-3 text-sm';
+
+      schedule.forEach(day => {
+        const card = document.createElement('details');
+        card.open = day.offset === schedule[0].offset;
+        card.className = 'day-card rounded-2xl border border-slate-200 bg-slate-50/60 p-4 sm:p-5';
+        const heading = document.createElement('summary');
+        heading.className = 'flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 outline-none';
+        const dayTitle = document.createElement('span');
+        dayTitle.className = 'flex flex-wrap items-center gap-2 text-sm font-bold text-slate-800';
+        const dayNumber = document.createElement('span');
+        dayNumber.className = 'rounded-lg bg-violet-100 px-2.5 py-1 text-violet-700';
+        dayNumber.textContent = `Day ${day.offset}`;
+        const dateLabel = document.createElement('span');
+        dateLabel.className = 'text-slate-600';
+        const date = new Date(day.date + 'T00:00:00');
+        dateLabel.textContent = date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+        dayTitle.append(dayNumber, dateLabel);
+        const dayHours = day.blocks.reduce((sum, block) => sum + Number(block.hours || 0), 0);
+        const hoursLabel = document.createElement('span');
+        hoursLabel.className = 'rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200';
+        hoursLabel.textContent = `${formatHours(dayHours)} scheduled`;
+        heading.append(dayTitle, hoursLabel);
+        const taskList = document.createElement('div');
+        taskList.className = 'day-content mt-4 space-y-2 border-t border-slate-200 pt-4';
+        day.blocks.forEach(block => {
+          const label = document.createElement('div');
+          label.className = 'task-row flex flex-wrap items-start gap-3 rounded-xl border border-slate-100 bg-white p-3.5 transition hover:border-violet-200 sm:flex-nowrap';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = block.completed;
+          checkbox.className = 'mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-violet-600';
+          checkbox.id = `task-${block.id}`;
+          checkbox.setAttribute('aria-label', `Mark ${block.subjectName} study block complete`);
+          checkbox.addEventListener('change', () => {
+            block.completed = checkbox.checked;
+            taskDescription.classList.toggle('line-through', checkbox.checked);
+            taskDescription.classList.toggle('text-slate-400', checkbox.checked);
+            taskDescription.classList.toggle('text-slate-700', !checkbox.checked);
+            saveState();
+            updateProgress(true);
+          });
+          const taskDescription = document.createElement('label');
+          taskDescription.htmlFor = checkbox.id;
+          taskDescription.className = `min-w-0 flex-1 text-sm ${block.completed ? 'line-through text-slate-400' : 'text-slate-700'}`;
+          const detailRow = document.createElement('span');
+          detailRow.className = 'flex flex-wrap items-center gap-2';
+          const badge = document.createElement('span');
+          badge.className = `rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset ${difficultyStyle(block.difficulty)}`;
+          badge.textContent = block.subjectName;
+          const title = document.createElement('span');
+          title.className = 'font-semibold';
+          title.textContent = block.description || block.hint || taskHint(block.difficulty);
+          detailRow.append(badge, title);
+          const duration = document.createElement('span');
+          duration.className = 'mt-1 block text-xs text-slate-500';
+          duration.textContent = `${formatHours(Number(block.hours))} session`;
+          taskDescription.append(detailRow, duration);
+          const focusButton = document.createElement('button');
+          focusButton.type = 'button';
+          focusButton.className = 'no-print ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 focus:outline-none focus:ring-4 focus:ring-violet-100';
+          focusButton.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5-10-6.5Z"/></svg>Start Focus';
+          focusButton.addEventListener('click', () => openFocus(block));
+          label.append(checkbox, taskDescription, focusButton);
+          taskList.append(label);
+        });
+        card.append(heading, taskList);
+        scheduleList.append(card);
+      });
+
+      const buildResult = buildSchedule();
+      const overdue = subjects.filter(subject => buildResult.daysUntilExam.get(subject.id) <= 0);
+      const overloaded = subjects.some(subject => (buildResult.remaining.get(subject.id) || 0) > 0);
+      const warnings = [];
+      if (overdue.length) warnings.push(`Some exam dates are today or have passed (${overdue.map(subject => subject.name).join(', ')}). There are no study days left for those subjects; please check your exam dates.`);
+      if (overloaded) warnings.push('Warning: High workload! You may need to increase your daily study hours to cover all topics.');
+      if (warnings.length) {
+        scheduleNote.textContent = warnings.join(' ');
+        scheduleNote.classList.remove('hidden');
+        scheduleNote.classList.add('bg-amber-50', 'text-amber-800', 'ring-1', 'ring-amber-200');
+      }
+      allSessionsWereComplete = false;
+      updateProgress();
+    }
+
+    function formatHours(hours) {
+      const value = Number(hours);
+      return `${Number.isInteger(value) ? value : value.toFixed(1)} ${value === 1 ? 'hr' : 'hrs'}`;
+    }
+
+    const focusModal = document.getElementById('focus-modal');
+    const focusPanel = document.getElementById('focus-panel');
+    const timerDisplay = document.getElementById('timer-display');
+    const timerStart = document.getElementById('timer-start');
+    const timerPause = document.getElementById('timer-pause');
+    const timerReset = document.getElementById('timer-reset');
+    let timerSeconds = 25 * 60;
+    let timerInterval = null;
+    let focusReturnElement = null;
+
+    function renderTimer() {
+      const minutes = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const seconds = (timerSeconds % 60).toString().padStart(2, '0');
+      timerDisplay.textContent = `${minutes}:${seconds}`;
+    }
+    function setTimerButtons(running) {
+      timerStart.disabled = running || timerSeconds === 0;
+      timerPause.disabled = !running;
+      timerStart.classList.toggle('opacity-50', timerStart.disabled);
+      timerStart.classList.toggle('cursor-not-allowed', timerStart.disabled);
+      timerPause.classList.toggle('opacity-50', timerPause.disabled);
+      timerPause.classList.toggle('cursor-not-allowed', timerPause.disabled);
+    }
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerSeconds = 25 * 60;
+      renderTimer();
+      setTimerButtons(false);
+    }
+    let focusAudioContext = null;
+    function playFocusChime() {
+      try {
+        const context = focusAudioContext;
+        if (!context) return;
+        [523.25, 659.25].forEach((frequency, index) => {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          const start = context.currentTime + index * 0.22;
+          oscillator.type = 'sine';
+          oscillator.frequency.value = frequency;
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.12, start + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.42);
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + 0.45);
+        });
+      } catch (error) { console.warn('The focus chime could not be played.', error); }
+    }
+    function startTimer() {
+      if (timerInterval || timerSeconds <= 0) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass && !focusAudioContext) focusAudioContext = new AudioContextClass();
+        focusAudioContext?.resume?.();
+      } catch (error) { console.warn('Audio is unavailable in this browser.', error); }
+      setTimerButtons(true);
+      timerInterval = window.setInterval(() => {
+        timerSeconds -= 1;
+        renderTimer();
+        if (timerSeconds <= 0) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+          setTimerButtons(false);
+          playFocusChime();
+          window.setTimeout(() => window.alert('Great job! Take a 5-minute break.'), 550);
+        }
+      }, 1000);
+    }
+    function openFocus(block) {
+      focusReturnElement = document.activeElement;
+      resetTimer();
+      document.getElementById('focus-task').textContent = `${block.subjectName} · ${block.description || block.hint || taskHint(block.difficulty)} · ${formatHours(Number(block.hours))}`;
+      focusModal.classList.remove('hidden');
+      focusModal.classList.add('flex');
+      document.body.classList.add('overflow-hidden');
+      requestAnimationFrame(() => {
+        focusModal.classList.remove('opacity-0');
+        focusModal.classList.add('opacity-100');
+        focusPanel.classList.remove('scale-95', 'opacity-0');
+        focusPanel.classList.add('scale-100', 'opacity-100');
+        timerStart.focus();
+      });
+    }
+    function closeFocus() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      setTimerButtons(false);
+      focusModal.classList.remove('opacity-100');
+      focusModal.classList.add('opacity-0');
+      focusPanel.classList.remove('scale-100', 'opacity-100');
+      focusPanel.classList.add('scale-95', 'opacity-0');
+      document.body.classList.remove('overflow-hidden');
+      window.setTimeout(() => {
+        focusModal.classList.add('hidden');
+        focusModal.classList.remove('flex');
+        focusReturnElement?.focus?.();
+      }, 190);
+    }
+    timerStart.addEventListener('click', startTimer);
+    timerPause.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      setTimerButtons(false);
+    });
+    timerReset.addEventListener('click', resetTimer);
+    document.getElementById('focus-close').addEventListener('click', closeFocus);
+    document.getElementById('focus-close-icon').addEventListener('click', closeFocus);
+    focusModal.addEventListener('click', event => { if (event.target === focusModal) closeFocus(); });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !focusModal.classList.contains('hidden')) closeFocus();
+    });
+    document.getElementById('print-button').addEventListener('click', () => window.print());
+
+    document.getElementById('subject-name').addEventListener('input', event => event.currentTarget.setCustomValidity(''));
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const nameInput = document.getElementById('subject-name');
+      if (!nameInput.value.trim()) nameInput.setCustomValidity('Please enter a subject name.');
+      else nameInput.setCustomValidity('');
+      if (!form.reportValidity()) return;
+      const data = new FormData(form);
+      subjects.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        name: data.get('name').trim(),
+        examDate: data.get('examDate'),
+        difficulty: data.get('difficulty'),
+        hours: Number(data.get('hours'))
+      });
+      renderSubjects();
+      saveState();
+      if (schedule.length) clearSchedule();
+      form.reset();
+      document.getElementById('hours-needed').value = '10';
+      document.getElementById('subject-name').focus();
+    });
+
+    document.getElementById('generate-button').addEventListener('click', () => {
+      if (subjects.length === 0) {
+        alert('Add at least one subject before generating your revision schedule.');
+        return;
+      }
+      const result = buildSchedule();
+      schedule = result.plan;
+      saveState();
+      renderSchedule();
+      planSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    document.getElementById('load-sample').addEventListener('click', () => {
+      subjects = [
+        { id: `sample-math-${Date.now()}`, name: 'Mathematics', examDate: dateKey(localDateAtOffset(5)), difficulty: 'Hard', hours: 10 },
+        { id: `sample-history-${Date.now() + 1}`, name: 'History', examDate: dateKey(localDateAtOffset(9)), difficulty: 'Medium', hours: 8 },
+        { id: `sample-chem-${Date.now() + 2}`, name: 'Chemistry', examDate: dateKey(localDateAtOffset(14)), difficulty: 'Easy', hours: 10 }
+      ];
+      schedule = [];
+      availability.value = '4';
+      availabilityValue.textContent = '4';
+      renderSubjects();
+      saveState();
+      document.getElementById('generate-button').click();
+    });
+    document.getElementById('reset-all').addEventListener('click', () => {
+      try { localStorage.clear(); } catch (error) { console.warn('Planner data could not be cleared.', error); }
+      if (!focusModal.classList.contains('hidden')) closeFocus();
+      focusReturnElement = null;
+      subjects = [];
+      schedule = [];
+      availability.value = '4';
+      availabilityValue.textContent = '4';
+      form.reset();
+      document.getElementById('hours-needed').value = '10';
+      renderSubjects();
+      planSection.classList.add('hidden');
+      scheduleList.replaceChildren();
+      scheduleNote.textContent = '';
+      scheduleNote.className = 'mt-5 hidden rounded-xl px-4 py-3 text-sm';
+      allSessionsWereComplete = false;
+      document.getElementById('subject-name').focus();
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    document.getElementById('exam-date').min = dateKey(today);
+    renderSubjects();
+    if (schedule.length) renderSchedule();
+  </script>
+</body>
+</html>
